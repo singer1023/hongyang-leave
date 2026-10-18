@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<title>虹揚廣告出勤表</title>
+<meta name="theme-color" content="#b0191e">
+<meta name="application-name" content="虹揚出勤">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="虹揚出勤">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="exceljs.min.js"></script>
+<script src="payroll.js"></script>
+<style>
+  :root { --red:#b0191e; --red-d:#8c1216; --bg:#f6f3ef; --card:#fff; --ink:#222; --mute:#777; --line:#e3ddd6; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif; }
+  header { background:#fff; border-bottom:4px solid var(--red); padding:14px 16px; display:flex; align-items:center; gap:14px; }
+  header img { width:60px; height:60px; object-fit:contain; }
+  header h1 { margin:0; font-size:22px; color:var(--red); letter-spacing:2px; }
+  header p { margin:2px 0 0; color:var(--mute); font-size:14px; }
+  main { max-width:960px; margin:0 auto; padding:16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:18px; margin-bottom:16px; }
+  .card h2 { margin:0 0 12px; font-size:18px; color:var(--red-d); }
+  .weekline { font-size:17px; font-weight:bold; background:#fbeeee; border-left:5px solid var(--red); padding:10px 12px; border-radius:6px; margin-bottom:14px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px 16px; }
+  label { display:block; font-size:14px; color:var(--mute); margin-bottom:4px; }
+  select, input { width:100%; padding:10px; font-size:16px; border:1px solid #ccc; border-radius:6px; background:#fff; font-family:inherit; }
+  .btns { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
+  button { padding:11px 18px; font-size:16px; border:0; border-radius:6px; cursor:pointer; font-family:inherit; }
+  button:disabled { opacity:.5; cursor:wait; }
+  .primary { background:var(--red); color:#fff; }
+  .ghost { background:#fff; color:var(--red); border:1px solid var(--red); }
+  .small { padding:5px 10px; font-size:13px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { border-bottom:1px solid var(--line); padding:8px 6px; text-align:left; white-space:nowrap; }
+  th { background:#faf7f4; color:var(--red-d); }
+  .tablewrap { overflow-x:auto; }
+  .muted { color:var(--mute); font-size:13px; }
+  .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#333; color:#fff; padding:10px 18px; border-radius:20px; display:none; z-index:9; }
+  .modal { position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; padding:16px; z-index:10; }
+  .modal .box { background:#fff; border-radius:12px; padding:20px; width:100%; max-width:420px; }
+  .modal .msg { white-space:pre-line; font-size:16px; line-height:1.7; margin-bottom:16px; }
+  .modal .btns { justify-content:flex-end; margin-top:0; }
+  #loading { text-align:center; padding:40px; color:var(--mute); }
+</style>
+</head>
+<body>
+<header>
+  <img src="icon-192.png" alt="虹揚廣告 LOGO">
+  <div><h1>虹揚廣告有限公司</h1><p>員工出勤／休假登記表</p></div>
+</header>
+
+<div id="installBar" style="display:none;background:#fff7e6;border-bottom:1px solid #f0d9a8;padding:8px 16px;text-align:center;font-size:14px">
+<span>📲 把出勤表裝到手機主畫面，像 App 一樣一點就開</span>
+<button type="button" id="installBtn" style="margin-left:8px;padding:2px 14px;font-size:14px;font-weight:700;color:#b0191e;background:#fff;border:1px solid #b0191e;border-radius:999px;cursor:pointer">安裝</button>
+<div id="iosHelp" style="display:none;margin-top:6px;color:#8c1216;line-height:1.7">iPhone／iPad：請用 Safari 開啟，點下方「分享」圖示 → 選「加入主畫面」→ 按「新增」。</div>
+</div>
+<main>
+  <div id="loading">資料載入中…</div>
+  <div id="app" style="display:none">
+  <section class="card">
+    <div class="weekline" id="weekline"></div>
+    <div class="grid">
+      <div><label>1. 員工名字</label><select id="emp"></select></div>
+      <div><label>2. 假別</label><select id="leave"></select></div>
+      <div><label>3. 服務工地</label><select id="site"></select></div>
+      <div><label>4. 休假週次</label><select id="week"></select></div>
+      <div><label>5. 休假日期（起）</label><select id="dStart"></select></div>
+      <div><label>6. 休假日期（迄）</label><select id="dEnd"></select></div>
+      <div><label>備註（選填）</label><input id="note" placeholder="例：回台東（選填）"></div>
+      <div><label>年度</label><select id="year"></select></div>
+    </div>
+    <div class="btns">
+      <button class="primary" id="saveBtn">送出登記</button>
+    </div>
+    <p class="muted">送出後會自動在公司 Google 行事曆的休假日 8:00~9:00 標上休假人員名字（只標早上，不佔整天；半天休也一樣）。</p>
+  </section>
+
+  <section class="card">
+    <h2>7. 月底輸出薪資請款表（可直接列印）</h2>
+    <div class="grid"><div><label>月份</label><input type="month" id="month"></div></div>
+    <div class="btns"><button class="primary" id="xlsBtn">輸出薪資請款表 EXCEL</button></div>
+    <h2 style="margin-top:20px">本月登記紀錄</h2>
+    <div class="tablewrap"><table>
+      <thead><tr><th>員工</th><th>假別</th><th>工地</th><th>週次</th><th>起</th><th>迄</th><th>天數</th><th>備註</th><th></th></tr></thead>
+      <tbody id="list"></tbody>
+    </table></div>
+  </section>
+  </div>
+</main>
+<div class="toast" id="toast"></div>
+<div class="modal" id="codeModal"><div class="box">
+  <div class="msg">請輸入通行碼（向公司索取，輸入一次即可）</div>
+  <input id="codeIn" type="password" autocomplete="off" style="margin:10px 0 14px">
+  <div class="btns"><button type="button" class="primary" id="codeOk">確定</button></div>
+</div></div>
+<p class="muted" style="text-align:center;font-size:12px;margin:18px 0 90px">虹揚廣告出勤表｜PWA-1</p>
+<div class="modal" id="modal"><div class="box">
+  <div class="msg" id="modalMsg"></div>
+  <div class="btns"><button type="button" class="ghost" id="modalNo">取消</button><button type="button" class="primary" id="modalYes">確定</button></div>
+</div></div>
+
+<script src="config.js"></script>
+<script>
+const LEAVES = ["例行休假","例行上休","例行下休","事假","病假","特休","婚假","喪假","產假"];
+const HALF = {"例行上休":0.5,"例行下休":0.5};   // 半天休：每天以 0.5 天計
+const unit = l => HALF[l] || 1;
+const WD = ["日","一","二","三","四","五","六"];
+const $ = id => document.getElementById(id);
+let EMPS = [], SITES = [], records = [], PAY = {};
+
+// ---- 日期工具（週一為起、週日為迄，採 ISO 週次）----
+const pad = n => String(n).padStart(2,"0");
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parse = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); };
+const addDays = (d,n) => new Date(d.getFullYear(), d.getMonth(), d.getDate()+n);
+const roc = d => `${d.getFullYear()-1911}年${d.getMonth()+1}月${d.getDate()}日`;
+const rocShort = s => { const d = parse(s); return `${d.getFullYear()-1911}/${d.getMonth()+1}/${d.getDate()}(${WD[d.getDay()]})`; };
+function week1Monday(y){ const j4 = new Date(y,0,4); return addDays(j4, -((j4.getDay()+6)%7)); }
+function weekMonday(y,w){ return addDays(week1Monday(y), (w-1)*7); }
+function isoWeek(d){ const t = addDays(d, 3-((d.getDay()+6)%7)); const y = t.getFullYear(); return { y, w: Math.round((t - week1Monday(y)) / 864e5 / 7) + 1 }; }
+function weeksInYear(y){ return isoWeek(new Date(y,11,28)).w; }
+const daysBetween = (a,b) => Math.round((parse(b)-parse(a))/864e5)+1;
+const esc = s => String(s||"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function fillSelect(el, items, val){
+  el.innerHTML = items.map(it => { const [v,t] = Array.isArray(it) ? it : [it,it]; return `<option value="${esc(v)}">${esc(t)}</option>`; }).join("");
+  if (val !== undefined && items.some(it => (Array.isArray(it)?it[0]:it) == val)) el.value = val;
+}
+
+function initSelects(){
+  const cur = isoWeek(new Date());
+  fillSelect($("emp"), EMPS);
+  fillSelect($("leave"), LEAVES, "例行休假");
+  fillSelect($("site"), SITES);
+  const ys = []; for (let y = cur.y-1; y <= cur.y+1; y++) ys.push([y, `${y-1911}年（${y}）`]);
+  fillSelect($("year"), ys, cur.y);
+  refreshWeeks(cur.w);
+}
+function refreshWeeks(defW){
+  const y = +$("year").value, n = weeksInYear(y), ws = [];
+  for (let w = 1; w <= n; w++){ const m = weekMonday(y,w), s = addDays(m,6); ws.push([w, `第${w}週（${m.getMonth()+1}/${m.getDate()}~${s.getMonth()+1}/${s.getDate()}）`]); }
+  fillSelect($("week"), ws, defW ?? Math.min(+$("week").value || 1, n));
+  refreshDates();
+}
+function refreshDates(){
+  const m = weekMonday(+$("year").value, +$("week").value);
+  $("weekline").textContent = `${$("year").value-1911}年 第 ${$("week").value} 週（${roc(m)} ~ ${roc(addDays(m,6))}）`;
+  const opts = []; for (let i=0;i<7;i++){ const d = iso(addDays(m,i)); opts.push([d, rocShort(d)]); }
+  fillSelect($("dStart"), opts);
+  refreshEnd();
+}
+function refreshEnd(){
+  // 預設與起日同一天；可往後選至 8 週內（婚假、產假等長假）
+  const s = parse($("dStart").value), opts = [];
+  for (let i=0;i<56;i++){ const d = iso(addDays(s,i)); opts.push([d, rocShort(d) + (i===0?"（同一天）":"")]); }
+  fillSelect($("dEnd"), opts, $("dStart").value);
+}
+
+// ---- 伺服器呼叫 ----
+const KEYN = "hy_leave_k", CKL = "hy_leave_cache_v1";
+function getKey(){ try { return localStorage.getItem(KEYN) || ""; } catch (e) { return ""; } }
+function setKey(v){ try { localStorage.setItem(KEYN, v); } catch (e) {} }
+function askCode(){
+  return new Promise(res => {
+    $("codeIn").value = ""; $("codeModal").style.display = "flex";
+    $("codeOk").onclick = () => { const v = $("codeIn").value.trim(); $("codeModal").style.display = "none"; res(v); };
+  });
+}
+async function api(params, retried){
+  if (typeof API_URL === "undefined" || API_URL.indexOf("script.google.com") < 0) throw new Error("尚未設定資料網址：請編輯 config.js，貼上 Apps Script 網頁應用程式網址（結尾 /exec）");
+  const u = new URL(API_URL);
+  Object.keys(params).forEach(k => u.searchParams.set(k, params[k]));
+  const k = getKey(); if (k) u.searchParams.set("k", k);
+  const r = await fetch(u.toString(), { cache: "no-store" });
+  if (!r.ok) throw new Error("連線失敗（HTTP " + r.status + "）");
+  const d = await r.json();
+  if (d && d.error === "AUTH") {
+    if (retried) { setKey(""); throw new Error("通行碼錯誤，請重新操作並輸入正確通行碼"); }
+    setKey(await askCode());
+    return api(params, true);
+  }
+  if (d && d.error) throw new Error(d.error);
+  return d;
+}
+function call(fn, ...args){
+  if (fn === "getData") return api({ api: "data" });
+  if (fn === "submitLeave") return api({ api: "submit", d: JSON.stringify(args[0]) }).then(x => x.records);
+  if (fn === "deleteLeave") return api({ api: "delete", id: args[0] }).then(x => x.records);
+  return Promise.reject(new Error("未知的指令"));
+}
+function busy(on){ document.querySelectorAll("main button").forEach(b => b.disabled = on); }
+
+// 網頁內建對話框（手機 LINE 等瀏覽器會封鎖 alert/confirm 跳窗）
+function ask(msg, okOnly){
+  return new Promise(res => {
+    $("modalMsg").textContent = msg;
+    $("modalNo").style.display = okOnly ? "none" : "";
+    $("modal").style.display = "flex";
+    const done = v => { $("modal").style.display = "none"; $("modalYes").onclick = $("modalNo").onclick = null; res(v); };
+    $("modalYes").onclick = () => done(true);
+    $("modalNo").onclick = () => done(false);
+  });
+}
+const notify = msg => ask(msg, true);
+
+async function save(){
+  const r = { emp:$("emp").value, leave:$("leave").value, site:$("site").value, year:+$("year").value, week:+$("week").value,
+              start:$("dStart").value, end:$("dEnd").value, note:$("note").value.trim() };
+  if (!r.emp) return notify("請選擇員工");
+  const dup = records.find(x => x.emp===r.emp && !(x.end < r.start || x.start > r.end));
+  if (dup && !await ask(`${r.emp} 在 ${rocShort(dup.start)}~${rocShort(dup.end)} 已有「${dup.leave}」登記，仍要新增嗎？`)) return;
+  const days = daysBetween(r.start, r.end) * unit(r.leave);
+  if (!await ask(`確認送出？\n${r.emp}｜${r.leave}｜${r.site}\n${rocShort(r.start)} ~ ${rocShort(r.end)}（共 ${days} 天）`)) return;
+  busy(true); toast("送出中…", true);
+  try {
+    records = await call("submitLeave", r);
+    $("note").value = ""; $("month").value = r.start.slice(0,7); renderList();
+    toast("已登記並寫入公司行事曆 ✔");
+  } catch(e){ toast(""); notify("送出失敗：" + e.message); }
+  busy(false);
+}
+async function del(id){
+  const r = records.find(x => x.id===id);
+  if (!r || !await ask(`確定刪除 ${r.emp} ${rocShort(r.start)}~${rocShort(r.end)} 的「${r.leave}」？\n（行事曆上的活動也會一併刪除）`)) return;
+  busy(true);
+  try { records = await call("deleteLeave", id); renderList(); toast("已刪除"); }
+  catch(e){ notify("刪除失敗：" + e.message); }
+  busy(false);
+}
+
+// 某筆紀錄落在指定月份的天數
+function daysInMonth(r, ym){
+  const [y,m] = ym.split("-").map(Number), ms = iso(new Date(y,m-1,1)), me = iso(new Date(y,m,0));
+  const s = r.start > ms ? r.start : ms, e = r.end < me ? r.end : me;
+  return s > e ? 0 : daysBetween(s,e) * unit(r.leave);
+}
+function monthRecords(ym){ return records.filter(r => daysInMonth(r, ym) > 0).sort((a,b)=> a.emp.localeCompare(b.emp,"zh-Hant") || a.start.localeCompare(b.start)); }
+
+function renderList(){
+  const ym = $("month").value, rows = monthRecords(ym);
+  $("list").innerHTML = rows.length ? rows.map(r => `<tr><td>${esc(r.emp)}</td><td>${esc(r.leave)}</td><td>${esc(r.site)}</td><td>${r.year-1911}年第${r.week}週</td>
+    <td>${rocShort(r.start)}</td><td>${rocShort(r.end)}</td><td>${daysInMonth(r,ym)}</td><td>${esc(r.note)}</td>
+    <td><button class="ghost small" data-del="${esc(r.id)}">刪除</button></td></tr>`).join("")
+    : `<tr><td colspan="9" class="muted">本月尚無登記</td></tr>`;
+}
+
+async function exportXlsx(){
+  if (typeof ExcelJS === "undefined" || typeof PayrollBuild === "undefined") return notify("Excel 元件未載入，請確認網路連線後重新整理。");
+  const ym = $("month").value;
+  if (!ym) return notify("請先選擇月份");
+  try {
+    toast("產生薪資請款表中…", true);
+    const out = PayrollBuild.build(ExcelJS, { ym, emps: EMPS, pay: PAY, records, today: iso(new Date()) });
+    const buf = await out.wb.xlsx.writeBuffer();
+    const [y, m] = ym.split("-").map(Number);
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+    a.download = `虹揚廣告薪資請款表_${y-1911}年${pad(m)}月.xlsx`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    toast("已產生，請到下載項目開啟");
+  } catch (e) { toast(""); notify("輸出失敗：" + e.message); }
+}
+
+function toast(t, stay){ const el = $("toast"); el.textContent = t; el.style.display = t ? "block" : "none"; clearTimeout(el._t); if (!stay) el._t = setTimeout(()=> el.style.display="none", 2200); }
+
+$("year").onchange = () => refreshWeeks();
+$("week").onchange = refreshDates;
+$("dStart").onchange = refreshEnd;
+$("saveBtn").onclick = save;
+$("month").onchange = renderList;
+$("xlsBtn").onclick = exportXlsx;
+$("list").onclick = e => { const id = e.target.dataset && e.target.dataset.del; if (id) del(id); };
+
+(async function(){
+  let d = null, offline = false, cached = null;
+  try { cached = JSON.parse(localStorage.getItem(CKL) || "null"); } catch (e) {}
+  try { d = await call("getData"); try { localStorage.setItem(CKL, JSON.stringify(d)); } catch (e) {} }
+  catch (e) {
+    if (cached && cached.emps) { d = cached; offline = true; }
+    else { $("loading").textContent = "載入失敗：" + e.message; return; }
+  }
+  EMPS = d.emps; SITES = d.sites; records = d.records; PAY = d.pay || {};
+  initSelects();
+  $("month").value = iso(new Date()).slice(0,7);
+  renderList();
+  $("loading").style.display = "none"; $("app").style.display = "block";
+  if (offline) toast("目前離線或連線失敗，顯示的是上次儲存的資料，暫時無法送出或刪除", true);
+})();
+let _dip = null;
+const _standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone;
+const _ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
+if (!_standalone) {
+  window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); _dip = e; $("installBar").style.display = "block"; });
+  if (_ios) { $("installBar").style.display = "block"; $("installBtn").textContent = "怎麼安裝？"; }
+  $("installBtn").onclick = () => { if (_dip) { _dip.prompt(); _dip = null; $("installBar").style.display = "none"; } else { $("iosHelp").style.display = "block"; } };
+}
+window.addEventListener("appinstalled", () => { $("installBar").style.display = "none"; });
+if ("serviceWorker" in navigator) { window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); }); }
+</script>
+</body>
+</html>

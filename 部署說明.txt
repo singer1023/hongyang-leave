@@ -1,0 +1,41 @@
+虹揚廣告出勤表 PWA 版 部署說明（上傳 GitHub 時，這個說明檔和 Code_PWA版.gs 不必上傳）
+
+一、Apps Script（後端，使用原本的休假系統專案）
+1. 把 Code_PWA版.gs 的全部內容貼到專案的 Code，取代原本內容。Index 維持原樣不用動。
+2. 部署 → 管理部署作業 → 鉛筆圖示 → 版本選「新版本」→ 部署。
+   「執行身分」選「我」，「誰可以存取」必須選「所有人」，否則 GitHub 的網頁讀不到資料。網址不變。
+3. 測試：在瀏覽器網址列貼「您的 /exec 網址」後面加 ?api=data，看到以 {"emps": 開頭的一串文字就成功。
+4. 【建議】設定通行碼，避免只拿到網址的外人看到或亂登記休假：
+   在 Code 找到 setAccessCode，把引號內的「請改成您要的通行碼」改成您要的通行碼，
+   上方選 setAccessCode 按「執行」。之後員工第一次開啟時輸入一次通行碼即可。
+   不想用通行碼，就不要執行；已設定想取消，執行 clearAccessCode。
+
+   第一次有人開啟網頁時，系統會自動在「設定」工作表新增 C、D 兩欄：
+   C 欄「薪制」（月薪制／出勤制）：楊明勳、盧冠鎮、劉子廉預設為月薪制，其餘為出勤制。
+   D 欄「月薪金額」：出勤制預設 36000，可逐人修改；新增員工時，請在 A 欄加名字，C、D 欄照樣填。
+
+二、GitHub Pages（前端）
+1. GitHub → 右上角「＋」→ New repository，名稱填英文，例如 hongyang-leave，選 Public，Create。
+2. 先用記事本打開 config.js，把引號內的文字換成休假系統的 /exec 網址（保留 var API_URL = " 和 "; ），存檔。
+3. 在新儲存庫按 uploading an existing file，把以下檔案拖進去（是檔案，不是資料夾本身），按 Commit changes：
+   index.html、config.js、manifest.webmanifest、sw.js、payroll.js、exceljs.min.js、
+   icon-192.png、icon-512.png、icon-maskable-512.png、apple-touch-icon.png、favicon-32.png
+4. Settings → Pages → Source 選 Deploy from a branch，Branch 選 main、資料夾 /(root)，Save。
+5. 等 1～2 分鐘，網址就是 https://singer1023.github.io/hongyang-leave/（hongyang-leave 換成您取的名稱）。
+
+三、員工加入手機桌面
+iPhone：用 Safari 開啟網址 → 點下方「分享」→「加入主畫面」→ 名稱「虹揚出勤」→ 加入。
+Android：用 Chrome 開啟網址 → 點頁面上方「安裝」（或右上角 ⋮ →「安裝應用程式」）。
+請務必從 github.io 網址加入，LOGO 圖示才會出現；從 script.google.com 網址加入只會是一個字的圖示。
+
+四、之後更新網頁
+改了 index.html 之後，把 sw.js 第一行的 hy-leave-v1 改成 hy-leave-v2、v3…，手機才會抓到新版。
+
+五、薪資請款表的計算規則（要改規則，請告訴 Claude，或修改 payroll.js 最上方的 RULES）
+1. 月薪制：不扣薪，請款表上合併成一列，只列出本月請假紀錄供參考。
+2. 出勤制：日薪＝月薪÷30。
+   有薪（照算薪水）：特休、婚假、喪假、病假、例行休假（含上休／下休各 0.5 天）。
+   無薪：事假、產假，每天扣一日薪。
+   每週（週一～週日）例行休假超過 1 天，超出的部分列入「超休」扣薪。
+3. 應發薪資＝月薪－（事假＋產假＋超休天數）×日薪。
+4. 輸出的 Excel 有三張工作表：薪資請款表（A4 橫式，可直接列印）、請假明細、每日總覽。
